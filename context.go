@@ -16,14 +16,13 @@ type (
 	Context struct {
 		Name        string          `json:"name,omitempty"`
 		Notes       json.RawMessage `json:"notes,omitempty"`
-		Pk          string          `json:"pk,omitempty"`
-		Sk          string          `json:"sk,omitempty"`
+		UserId      string          `json:"userId,omitempty"`
+		ContextId   string          `json:"contextId,omitempty"`
 		ParentId    string          `json:"parentId,omitempty"`
 		LastContext string          `json:"lastContext,omitempty"`
 		NoteString  string          `json:"noteString,omitempty"`
 		Created     string          `json:"created,omitempty"`
 		Completed   string          `json:"completed,omitempty"`
-		Random      string          `json:"random,omitempty"`
 	}
 	ContextClient struct {
 		baseUrl string
@@ -45,7 +44,9 @@ type (
 )
 
 var (
-	SkDateFormat = "2006-01-02T15:04:05Z"
+	SkDateFormat    = "2006-01-02T15:04:05Z"
+	PkString        = "userId"
+	TimestampString = "contextId"
 )
 
 func NewContextClient(host, user string) *ContextClient {
@@ -60,7 +61,7 @@ func (ctxClient *ContextClient) GetContext(contextId string) (*Context, error) {
 		ctxTimestamp := strings.Split(contextId, "#")
 		timestamp := ctxTimestamp[1]
 		url = fmt.Sprintf("%s?timestamp=%s", url, timestamp)
-	} else if contextId != "context" {
+	} else if contextId != "current" {
 		url = fmt.Sprintf("%s?timestamp=%s", url, contextId)
 	}
 	c := Context{}
@@ -158,11 +159,11 @@ func (ctxClient *ContextClient) ListContexts(filterParams QSParams) (*[]Context,
 }
 
 func (ctxClient *ContextClient) GetCurrentContext() (*Context, error) {
-	return ctxClient.GetContext("context")
+	return ctxClient.GetContext("current")
 }
 
 func (ctxClient *ContextClient) GetLastContext() (*Context, error) {
-	return ctxClient.GetContext("lastContext")
+	return ctxClient.GetContext("last")
 }
 
 func (ctxClient *ContextClient) UpdateContext(c *Context) (string, error) {
@@ -201,7 +202,7 @@ func (ctxClient *ContextClient) UpdateContext(c *Context) (string, error) {
 		// Handle error
 		return "", errors.New(fmt.Sprintf("error unmarshaling response body: %s", err.Error()))
 	}
-	return responseContext.Sk, nil
+	return responseContext.ContextId, nil
 	// return "new contextId", nil
 }
 
