@@ -30,8 +30,8 @@ type (
 	FormattedContext struct {
 		Name        string             `json:"name,omitempty"`
 		Notes       json.RawMessage    `json:"notes,omitempty"`
-		Pk          string             `json:"pk,omitempty"`
-		Sk          string             `json:"sk,omitempty"`
+		UserId      string             `json:"userId,omitempty"`
+		ContextId   string             `json:"contextId,omitempty"`
 		SubContexts []FormattedContext `json:"subContexts,omitempty"`
 		Created     string             `json:"created,omitempty"`
 		Completed   string             `json:"completed,omitempty"`
@@ -232,26 +232,73 @@ func (ctxClient *ContextClient) CloseContext(contextId string) (string, error) {
 	// return "new contextId", nil
 }
 
-// func (ctxClient *ContextClient) ListFormattedContexts(filterParams QSParams) (map[string]FormattedContext, error) {
-// 	formatted := map[string]FormattedContext{}
-// 	cs, err := ctxClient.ListContexts(filterParams)
-// 	cList := *cs
-// 	if err != nil {
-// 		return nil, err
-// 	}
+func (ctxClient *ContextClient) ListFormattedContexts(filterParams QSParams) (map[string]FormattedContext, error) {
+	// formatted := map[string]FormattedContext{}
+	listed := map[string]Context{}
+	cs, err := ctxClient.ListContexts(filterParams)
+	cList := *cs
+	if err != nil {
+		return nil, err
+	}
 
-// 	sort.Slice(cList, func(i, j int) bool {
-// 		return cList[i].Created > cList[j].Created
-// 	})
+	sort.Slice(cList, func(i, j int) bool {
+		return cList[i].Created > cList[j].Created
+	})
 
-// 	// for _, c := range cs {
+	for _, c := range cList {
+		listed[c.ContextId] = c
+	}
 
-// 	// }
+	formatted := formatContexts(listed)
 
-// 	return formatted, nil
-// }
+	keys := make([]string, 0, len(formatted))
+	for k := range formatted {
+		keys = append(keys, k)
+	}
+	sorted := []FormattedContext{}
 
-// func formatContext(c *Context) FormattedContext {
-// 	formatted := FormattedContext{}
-// 	return formatted
-// }
+	for _, key := range keys {
+		sorted = append(sorted, formatted[key])
+	}
+
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].Created < sorted[j].Created
+	})
+
+	out, err := json.MarshalIndent(sorted, "", "  ")
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("error marshaling contexts to JSON: %s", err))
+	}
+	fmt.Printf("out:\n%+v\n----\n", string(out))
+
+	return formatted, nil
+}
+
+func formatContexts(cs map[string]Context) map[string]FormattedContext {
+	formatted := map[string]FormattedContext{}
+
+	for id, c := range cs {
+		if c.ParentId != "" {
+			f := formatContext(&c)
+			p := formatted[c.ParentId]
+			p.SubContexts = append(p.SubContexts, f)
+			sort.Slice(p.SubContexts, func(i, j int) bool {
+				return p.SubContexts[i].Created < p.SubContexts[j].Created
+			})
+			formatted[c.ParentId] = p
+		} else {
+			formatted[id] = formatContext(&c)
+		}
+	}
+	return formatted
+}
+
+func formatContext(c *Context) FormattedContext {
+	return FormattedContext{
+		Name:  c.Name,
+		Notes: c.Notes,
+
+		ContextId: c.ContextId,
+		Created:   c.Created,
+	}
+}
