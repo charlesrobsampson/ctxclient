@@ -29,6 +29,7 @@ type (
 	}
 	ContextClient struct {
 		baseUrl string
+		host    string
 	}
 	FormattedContext struct {
 		Name        string             `json:"name,omitempty"`
@@ -55,7 +56,27 @@ var (
 func NewContextClient(host, user string) *ContextClient {
 	return &ContextClient{
 		baseUrl: fmt.Sprintf("%s/context/%s", host, user),
+		host:    host,
 	}
+}
+
+func (ctxClient *ContextClient) GetVersion() (string, error) {
+	url := fmt.Sprintf("%s/version", ctxClient.host)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", err
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	return string(body), nil
 }
 
 func (ctxClient *ContextClient) GetContext(contextId string) (*Context, error) {
